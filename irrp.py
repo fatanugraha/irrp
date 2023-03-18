@@ -2,8 +2,10 @@ import time
 
 import pigpio
 
+
 class ShortCodeError(Exception):
     pass
+
 
 # https://abyz.me.uk/rpi/pigpio/examples.html
 # based on https://abyz.me.uk/rpi/pigpio/code/irrp_py.zip
@@ -11,13 +13,13 @@ class RecordReplayer:
     def __init__(
         self,
         pi,
-        freq=38.0, # frequency kHz (--freq)
-        gap=100, # key gap ms (--gap)
-        glitch=100, # glitch us (--glitch)
-        post=15, # postamble ms (--post)
-        pre=200, # preamble ms (--pre)
-        short=10, # short code length (--short)
-        tolerance=15, # tolerance percent (--tolerance)
+        freq=38.0,  # frequency kHz (--freq)
+        gap=100,  # key gap ms (--gap)
+        glitch=100,  # glitch us (--glitch)
+        post=15,  # postamble ms (--post)
+        pre=200,  # preamble ms (--pre)
+        short=10,  # short code length (--short)
+        tolerance=15,  # tolerance percent (--tolerance)
     ):
         self.pi = pi
         self.GLITCH = glitch
@@ -28,12 +30,12 @@ class RecordReplayer:
         self.GAP_MS = gap
         self.TOLERANCE = tolerance
 
-        self.TOLER_MIN =  (100 - self.TOLERANCE) / 100.0
-        self.TOLER_MAX =  (100 + self.TOLERANCE) / 100.0
+        self.TOLER_MIN = (100 - self.TOLERANCE) / 100.0
+        self.TOLER_MAX = (100 + self.TOLERANCE) / 100.0
 
-        self.POST_US    = self.POST_MS * 1000
-        self.PRE_US     = self.PRE_MS  * 1000
-        self.GAP_S      = self.GAP_MS  / 1000.0
+        self.POST_US = self.POST_MS * 1000
+        self.PRE_US = self.PRE_MS * 1000
+        self.GAP_S = self.GAP_MS / 1000.0
 
     last_tick = 0
     in_code = False
@@ -46,16 +48,16 @@ class RecordReplayer:
         """
         wf = []
         cycle = 1000.0 / frequency
-        cycles = int(round(micros/cycle))
+        cycles = int(round(micros / cycle))
         on = int(round(cycle / 2.0))
         sofar = 0
         for c in range(cycles):
-            target = int(round((c+1)*cycle))
+            target = int(round((c + 1) * cycle))
             sofar += on
             off = target - sofar
             sofar += off
-            wf.append(pigpio.pulse(1<<gpio, 0, on))
-            wf.append(pigpio.pulse(0, 1<<gpio, off))
+            wf.append(pigpio.pulse(1 << gpio, 0, on))
+            wf.append(pigpio.pulse(0, 1 << gpio, off))
         return wf
 
     def _normalise(self, c):
@@ -94,17 +96,19 @@ class RecordReplayer:
         9000 4500 609 550 609 550 609 1675 609 1675 609
         """
         entries = len(c)
-        p = [0]*entries # Set all entries not processed.
+        p = [0] * entries  # Set all entries not processed.
         for i in range(entries):
-            if not p[i]: # Not processed?
+            if not p[i]:  # Not processed?
                 v = c[i]
                 tot = v
                 similar = 1.0
 
                 # Find all pulses with similar lengths to the start pulse.
-                for j in range(i+2, entries, 2):
-                    if not p[j]: # Unprocessed.
-                        if (c[j]*self.TOLER_MIN) < v < (c[j]*self.TOLER_MAX): # Similar.
+                for j in range(i + 2, entries, 2):
+                    if not p[j]:  # Unprocessed.
+                        if (
+                            (c[j] * self.TOLER_MIN) < v < (c[j] * self.TOLER_MAX)
+                        ):  # Similar.
                             tot = tot + c[j]
                             similar += 1.0
 
@@ -113,9 +117,11 @@ class RecordReplayer:
                 c[i] = newv
 
                 # Set all similar pulses to the average value.
-                for j in range(i+2, entries, 2):
-                    if not p[j]: # Unprocessed.
-                        if (c[j]*self.TOLER_MIN) < v < (c[j]*self.TOLER_MAX): # Similar.
+                for j in range(i + 2, entries, 2):
+                    if not p[j]:  # Unprocessed.
+                        if (
+                            (c[j] * self.TOLER_MIN) < v < (c[j] * self.TOLER_MAX)
+                        ):  # Similar.
                             c[j] = newv
                             p[j] = 1
 
@@ -135,7 +141,6 @@ class RecordReplayer:
         v = None
 
         for plen in sorted(ms):
-
             # Now go through in order, shortest first, and collapse
             # pulses which are the same within a tolerance to the
             # same value.  The value is the weighted average of the
@@ -151,13 +156,13 @@ class RecordReplayer:
                 tot = plen * ms[plen]
                 similar = ms[plen]
 
-            elif plen < (v*self.TOLER_MAX):
+            elif plen < (v * self.TOLER_MAX):
                 e.append(plen)
-                tot += (plen * ms[plen])
+                tot += plen * ms[plen]
                 similar += ms[plen]
 
             else:
-                v = int(round(tot/float(similar)))
+                v = int(round(tot / float(similar)))
                 # set all previous to v
                 for i in e:
                     ms[i] = v
@@ -166,7 +171,7 @@ class RecordReplayer:
                 tot = plen * ms[plen]
                 similar = ms[plen]
 
-        v = int(round(tot/float(similar)))
+        v = int(round(tot / float(similar)))
         # set all previous to v
         for i in e:
             ms[i] = v
@@ -176,8 +181,8 @@ class RecordReplayer:
             rec[i] = ms[rec[i]]
 
     def _tidy(self, records):
-        self._tidy_mark_space(records, 0) # Marks.
-        self._tidy_mark_space(records, 1) # Spaces.
+        self._tidy_mark_space(records, 0)  # Marks.
+        self._tidy_mark_space(records, 1)  # Spaces.
 
     def _end_of_code(self):
         if len(self.code) > self.SHORT:
@@ -193,28 +198,27 @@ class RecordReplayer:
             self.last_tick = tick
 
             if self.fetching_code:
-
-                if (edge > self.PRE_US) and (not self.in_code): # Start of a code.
+                if (edge > self.PRE_US) and (not self.in_code):  # Start of a code.
                     self.in_code = True
-                    self.pi.set_watchdog(gpio, self.POST_MS) # Start watchdog.
+                    self.pi.set_watchdog(gpio, self.POST_MS)  # Start watchdog.
 
-                elif (edge > self.POST_US) and self.in_code: # End of a code.
+                elif (edge > self.POST_US) and self.in_code:  # End of a code.
                     self.in_code = False
-                    self.pi.set_watchdog(gpio, 0) # Cancel watchdog.
+                    self.pi.set_watchdog(gpio, 0)  # Cancel watchdog.
                     self._end_of_code()
 
                 elif self.in_code:
                     self.code.append(edge)
 
         else:
-            self.pi.set_watchdog(gpio, 0) # Cancel watchdog.
+            self.pi.set_watchdog(gpio, 0)  # Cancel watchdog.
             if self.in_code:
                 self.in_code = False
                 self._end_of_code()
 
     def record(self, gpio):
-        self.pi.set_mode(gpio, pigpio.INPUT) # IR RX connected to this GPIO.
-        self.pi.set_glitch_filter(gpio, self.GLITCH) # Ignore glitches.
+        self.pi.set_mode(gpio, pigpio.INPUT)  # IR RX connected to this GPIO.
+        self.pi.set_glitch_filter(gpio, self.GLITCH)  # Ignore glitches.
 
         cb = self.pi.callback(gpio, pigpio.EITHER_EDGE, self._cbf)
         self.code = []
@@ -223,8 +227,8 @@ class RecordReplayer:
             time.sleep(0.1)
 
         time.sleep(0.5)
-        self.pi.set_glitch_filter(gpio, 0) # Cancel glitch filter.
-        self.pi.set_watchdog(gpio, 0) # Cancel watchdog.
+        self.pi.set_glitch_filter(gpio, 0)  # Cancel glitch filter.
+        self.pi.set_watchdog(gpio, 0)  # Cancel watchdog.
 
         records = self.code[:]
         self._tidy(records)
@@ -232,7 +236,7 @@ class RecordReplayer:
         return records
 
     def replay(self, gpio, code):
-        self.pi.set_mode(gpio, pigpio.OUTPUT) # IR TX connected to this GPIO.
+        self.pi.set_mode(gpio, pigpio.OUTPUT)  # IR TX connected to this GPIO.
         self.pi.wave_add_new()
 
         emit_time = time.time()
@@ -241,15 +245,15 @@ class RecordReplayer:
         marks_wid = {}
         spaces_wid = {}
 
-        wave = [0]*len(code)
+        wave = [0] * len(code)
         for i in range(0, len(code)):
             ci = code[i]
-            if i & 1: # Space
+            if i & 1:  # Space
                 if ci not in spaces_wid:
                     self.pi.wave_add_generic([pigpio.pulse(0, 0, ci)])
                     spaces_wid[ci] = self.pi.wave_create()
                 wave[i] = spaces_wid[ci]
-            else: # Mark
+            else:  # Mark
                 if ci not in marks_wid:
                     wf = self._carrier(gpio, self.FREQ, ci)
                     self.pi.wave_add_generic(wf)
@@ -262,7 +266,6 @@ class RecordReplayer:
             time.sleep(delay)
 
         self.pi.wave_chain(wave)
-
 
         while self.pi.wave_tx_busy():
             time.sleep(0.002)
@@ -299,6 +302,6 @@ class RecordReplayer:
                 return False
 
         for i in range(len(p1)):
-            p1[i] = int(round((p1[i]+p2[i])/2.0))
+            p1[i] = int(round((p1[i] + p2[i]) / 2.0))
 
         return True
