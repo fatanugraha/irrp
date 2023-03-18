@@ -1,4 +1,11 @@
+"""
+Basically [irrp.py](https://abyz.me.uk/rpi/pigpio/code/irrp_py.zip) but
+as a python module"""
+
+__version__ = "1.0.0"
+
 import time
+
 
 import pigpio
 
